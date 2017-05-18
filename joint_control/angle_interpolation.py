@@ -112,6 +112,7 @@ class AngleInterpolationAgent(PIDAgent):
             target_joints = self.saved_targed_joins
 
         self.saved_targed_joins = target_joints
+
         print "current Time:", currentTime, "joints:", target_joints
         return target_joints
 
