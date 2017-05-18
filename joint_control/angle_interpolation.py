@@ -32,9 +32,11 @@ class AngleInterpolationAgent(PIDAgent):
                  sync_mode=True):
         super(AngleInterpolationAgent, self).__init__(simspark_ip, simspark_port, teamname, player_id, sync_mode)
         self.keyframes = ([], [], [])
-        self.saved_targed_splines = []
+        self.saved_targed_splines = [0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+        self.saved_targed_joins = {}
         self.startTime = 0
         self.endTime = 0
+        self.saved_keyframes = ([], [], [])
 
     def think(self, perception):
         target_joints = self.angle_interpolation(self.keyframes, perception)
@@ -43,13 +45,14 @@ class AngleInterpolationAgent(PIDAgent):
 
     def angle_interpolation(self, keyframes, perception):
         target_joints = {}
-        if(self.startTime == 0):
+        if(self.saved_keyframes != keyframes):
+            self.saved_keyframes = keyframes
             self.startTime = perception.time
             tempTime = 0
             for times in keyframes[1]:
                 if times[-1] > tempTime:
                     tempTime = times[-1]
-            endTime = tempTime
+            self.endTime = tempTime
 
             jointCount = 0
             for joint in keyframes[0]:
@@ -89,17 +92,27 @@ class AngleInterpolationAgent(PIDAgent):
                     splines.append([times[i], times[i+1], poly])
 
                 # Save the polynoms of the joint
+                print jointCount
                 self.saved_targed_splines[jointCount] = [joint, splines]
                 jointCount += 1
+
         currentTime = perception.time - self.startTime
         for v in self.saved_targed_splines:
-            sensValue = 0
+            sens_value = 0
 
             for time1, time2, pol in v[1]:
-                if currentTime > time1 and currentTime < time2:
-                    sensValue = pol(currentTime)
+                if time2 < currentTime > time1:
+                    sens_value = pol(currentTime)
 
-            target_joints[v[0]] = sensValue
+            target_joints[v[0]] = sens_value
+
+        # print currentTime, " > ", self.endTime
+        if currentTime > self.endTime:
+            self.startTime = 0
+            target_joints = self.saved_targed_joins
+
+        self.saved_targed_joins = target_joints
+        print "current Time:", currentTime, "joints:", target_joints
         return target_joints
 
 if __name__ == '__main__':
