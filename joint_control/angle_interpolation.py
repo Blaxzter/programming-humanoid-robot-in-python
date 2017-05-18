@@ -32,6 +32,9 @@ class AngleInterpolationAgent(PIDAgent):
                  sync_mode=True):
         super(AngleInterpolationAgent, self).__init__(simspark_ip, simspark_port, teamname, player_id, sync_mode)
         self.keyframes = ([], [], [])
+        self.saved_targed_splines = []
+        self.startTime = 0
+        self.endTime = 0
 
     def think(self, perception):
         target_joints = self.angle_interpolation(self.keyframes, perception)
@@ -40,78 +43,66 @@ class AngleInterpolationAgent(PIDAgent):
 
     def angle_interpolation(self, keyframes, perception):
         target_joints = {}
-        jointCount = 0
-        for joint in keyframes[0]:
-            times = keyframes[1][jointCount]
-            length = len(times) - 1
-            y = np.zeros([length + 1])
-            for i in range(length + 1):
-                y[i] = keyframes[2][jointCount][i][0]
+        if(self.startTime == 0):
+            self.startTime = perception.time
+            tempTime = 0
+            for times in keyframes[1]:
+                if times[-1] > tempTime:
+                    tempTime = times[-1]
+            endTime = tempTime
 
-            x_mat = np.zeros([4 * length, 4 * length])
-            y_mat = np.zeros([4 * length, 1])
+            jointCount = 0
+            for joint in keyframes[0]:
+                times = keyframes[1][jointCount]
+                length = len(times) - 1
+                y = np.zeros([length + 1])
+                for i in range(length + 1):
+                    y[i] = keyframes[2][jointCount][i][0]
 
-            x_mat[0, 0:4] = np.array([0, 0, 2, 6 * times[0]])
+                x_mat = np.zeros([4 * length, 4 * length])
+                y_mat = np.zeros([4 * length, 1])
 
-            for val in range(length-1):
-                a = 4 * val
-                line = a + 1
-                x_mat[line, a:a + 4] = np.array([1, times[val], times[val] ** 2, times[val] ** 3])
-                x_mat[line + 1, a:a + 4] = np.array([1, times[val + 1], times[val + 1] ** 2, times[val + 1] ** 3])
-                x_mat[line + 2, a:a + 8] = np.array([0, 1, 2 * times[val + 1], 3 * times[val + 1] ** 2, 0, -1, -2 * times[val + 1], -3 * times[val + 1] ** 2])
-                x_mat[line + 3, a:a + 8] = np.array([0, 0, 2, 6 * times[val + 1], 0, 0, -2, -6 * times[val + 1]])
+                x_mat[0, 0:4] = np.array([0, 0, 2, 6 * times[0]])
 
-                y_mat[line:line + 4, 0] = np.array([y[val], y[val + 1], 0, 0])
+                for val in range(length-1):
+                    a = 4 * val
+                    line = a + 1
+                    x_mat[line, a:a + 4] = np.array([1, times[val], times[val] ** 2, times[val] ** 3])
+                    x_mat[line + 1, a:a + 4] = np.array([1, times[val + 1], times[val + 1] ** 2, times[val + 1] ** 3])
+                    x_mat[line + 2, a:a + 8] = np.array([0, 1, 2 * times[val + 1], 3 * times[val + 1] ** 2, 0, -1, -2 * times[val + 1], -3 * times[val + 1] ** 2])
+                    x_mat[line + 3, a:a + 8] = np.array([0, 0, 2, 6 * times[val + 1], 0, 0, -2, -6 * times[val + 1]])
 
-            x_mat[4 * length - 3, 4 * length - 4:4 * length] = np.array([1, times[length - 1], times[length - 1] ** 2, times[length - 1] ** 3])
-            x_mat[4 * length - 2, 4 * length - 4:4 * length] = np.array([1, times[length], times[length] ** 2, times[length] ** 3])
-            x_mat[4 * length - 1, 4 * length - 4:4 * length] = np.array([0, 0, 2, 6 * times[length]])
+                    y_mat[line:line + 4, 0] = np.array([y[val], y[val + 1], 0, 0])
 
-            y_mat[(4 * length - 3):(4 * length), 0] = np.array([y[length - 1], y[length], 0])
+                x_mat[4 * length - 3, 4 * length - 4:4 * length] = np.array([1, times[length - 1], times[length - 1] ** 2, times[length - 1] ** 3])
+                x_mat[4 * length - 2, 4 * length - 4:4 * length] = np.array([1, times[length], times[length] ** 2, times[length] ** 3])
+                x_mat[4 * length - 1, 4 * length - 4:4 * length] = np.array([0, 0, 2, 6 * times[length]])
 
-            splines = []
-            solution = np.linalg.solve(x_mat, y_mat).reshape(-1)
-            for i in range(length):
-                coffs = solution[(4 * i):(4 * i) + 4]
-                coffs = coffs[::-1]
-                temp_poly = np.poly1d(coffs)
-                dif = np.abs(times[i] - times[i + 1])
-                step = dif / 10
-                values = temp_poly(np.arange(times[i], times[i+1], step))
-                for val in values: splines.append(val)
+                y_mat[(4 * length - 3):(4 * length), 0] = np.array([y[length - 1], y[length], 0])
 
-            target_joints[joint] = splines
-            jointCount += 1
+                splines = []
+                solution = np.linalg.solve(x_mat, y_mat).reshape(-1)
+                for i in range(length):
+                    coffs = solution[(4 * i):(4 * i) + 4]
+                    coffs = coffs[::-1]
+                    poly = np.poly1d(coffs)
+                    splines.append([times[i], times[i+1], poly])
 
+                # Save the polynoms of the joint
+                self.saved_targed_splines[jointCount] = [joint, splines]
+                jointCount += 1
+        currentTime = perception.time - self.startTime
+        for v in self.saved_targed_splines:
+            sensValue = 0
+
+            for time1, time2, pol in v[1]:
+                if currentTime > time1 and currentTime < time2:
+                    sensValue = pol(currentTime)
+
+            target_joints[v[0]] = sensValue
         return target_joints
 
 if __name__ == '__main__':
     agent = AngleInterpolationAgent()
     agent.keyframes = hello()  # CHANGE DIFFERENT KEYFRAMES
     agent.run()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
