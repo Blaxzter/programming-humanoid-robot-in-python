@@ -60,7 +60,8 @@ class PIDController(object):
         
         self.e2 = self.e1
         self.e1 = e0
-        
+
+        self.y.append(self.u)
         
         return self.u
 

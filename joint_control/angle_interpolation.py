@@ -34,7 +34,6 @@ class AngleInterpolationAgent(PIDAgent):
         self.keyframes = ([], [], [])
         self.saved_targed_splines = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         self.startTime = 0
-        self.endTime = 0
         self.saved_keyframes = ([], [], [])
 
     def think(self, perception):
@@ -46,28 +45,27 @@ class AngleInterpolationAgent(PIDAgent):
         target_joints = {}
         # Check for new keyframes to interpolate (only interpolate once every keyframe)
         if self.saved_keyframes != keyframes:
-            # Save the keyframe and
+            # Save the keyframe and move start time
             self.saved_keyframes = keyframes
             self.startTime = perception.time
-            tempTime = 0
-            for times in keyframes[1]:
-                if times[-1] > tempTime:
-                    tempTime = times[-1]
-            self.endTime = tempTime
 
+            # interpolate for every joint
             jointCount = 0
             for joint in keyframes[0]:
+                # get the times or the x values
                 times = keyframes[1][jointCount]
                 length = len(times) - 1
+
+                # get the y values out of the keyframes for the spine interpolation
                 y = np.zeros([length + 1])
                 for i in range(length + 1):
                     y[i] = keyframes[2][jointCount][i][0]
 
+                # create the matrix for solving purpose
                 x_mat = np.zeros([4 * length, 4 * length])
                 y_mat = np.zeros([4 * length, 1])
 
-                x_mat[0, 0:4] = np.array([0, 0, 2, 6 * times[0]])
-
+                # fill the created matrix with information about the keyframes
                 for val in range(length-1):
                     a = 4 * val
                     line = a + 1
@@ -78,24 +76,30 @@ class AngleInterpolationAgent(PIDAgent):
 
                     y_mat[line:line + 4, 0] = np.array([y[val], y[val + 1], 0, 0])
 
+                # fill the corner cases where f'(0) = f'(n-1) = 0
+                x_mat[0, 0:4] = np.array([0, 0, 2, 6 * times[0]])
                 x_mat[4 * length - 3, 4 * length - 4:4 * length] = np.array([1, times[length - 1], times[length - 1] ** 2, times[length - 1] ** 3])
                 x_mat[4 * length - 2, 4 * length - 4:4 * length] = np.array([1, times[length], times[length] ** 2, times[length] ** 3])
                 x_mat[4 * length - 1, 4 * length - 4:4 * length] = np.array([0, 0, 2, 6 * times[length]])
 
                 y_mat[(4 * length - 3):(4 * length), 0] = np.array([y[length - 1], y[length], 0])
 
-                splines = []
+                # solve the created LGS
                 solution = np.linalg.solve(x_mat, y_mat).reshape(-1)
+
+                # get the polynomes out of the solution
+                splines = []
                 for i in range(length):
                     coffs = solution[(4 * i):(4 * i) + 4]
                     coffs = coffs[::-1]
                     poly = np.poly1d(coffs)
-                    splines.append([times[i], times[i+1], poly])
+                    splines.append([times[i], times[i+1], poly]) # save the polynom with the times of the polynom
 
                 # Save the polynoms of the joint
                 self.saved_targed_splines[jointCount] = [joint, splines]
                 jointCount += 1
 
+        # get the right return angle
         currentTime = perception.time - self.startTime
         for v in self.saved_targed_splines:
             sens_value = 0
