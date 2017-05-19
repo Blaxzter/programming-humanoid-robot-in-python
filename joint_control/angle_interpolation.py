@@ -31,9 +31,11 @@ class AngleInterpolationAgent(PIDAgent):
                  player_id=0,
                  sync_mode=True):
         super(AngleInterpolationAgent, self).__init__(simspark_ip, simspark_port, teamname, player_id, sync_mode)
+
         self.keyframes = ([], [], [])
-        self.saved_targed_splines = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        self.startTime = 0
+        self.saved_targed_splines = []
+        self.interpolated = 0
+        self.startTime = -1
         self.saved_keyframes = ([], [], [])
 
     def think(self, perception):
@@ -44,10 +46,12 @@ class AngleInterpolationAgent(PIDAgent):
     def angle_interpolation(self, keyframes, perception):
         target_joints = {}
         # Check for new keyframes to interpolate (only interpolate once every keyframe)
-        if self.saved_keyframes != keyframes:
+        if self.interpolated == 0 and len(keyframes[0]) != 0:
             # Save the keyframe and move start time
+            self.interpolated = 1
             self.saved_keyframes = keyframes
             self.startTime = perception.time
+            self.saved_targed_splines = [-1] * len(keyframes[0])
 
             # interpolate for every joint
             jointCount = 0
@@ -99,12 +103,18 @@ class AngleInterpolationAgent(PIDAgent):
                 self.saved_targed_splines[jointCount] = [joint, splines]
                 jointCount += 1
 
+
+        if v[0] in perception.joint.keys():
+            sens_value = perception.joint[v[0]]
+
         # get the right return angle
         currentTime = perception.time - self.startTime
+        print currentTime, " ", self.interpolated
         for v in self.saved_targed_splines:
-            sens_value = 0
 
             if currentTime > v[1][-1][1]:
+                print "Set to Zero"
+                self.interpolated = 0
                 sens_value = v[1][-1][2](v[1][-1][1])
             else:
                 for time1, time2, pol in v[1]:
@@ -113,6 +123,7 @@ class AngleInterpolationAgent(PIDAgent):
 
             target_joints[v[0]] = sens_value
 
+        print target_joints
         return target_joints
 
 if __name__ == '__main__':

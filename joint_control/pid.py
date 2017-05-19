@@ -37,14 +37,12 @@ class PIDController(object):
         delay = 0
         
         # Windows Values
-        self.Kp = 13
-        self.Ki = 1
-        self.Kd = 0.1
+        # self.Kp = 13
         
         # Ubuntu Values
-        # self.Kp = 30
-        # self.Ki = 1
-        # self.Kd = 0.1
+        self.Kp = 30
+        self.Ki = 1
+        self.Kd = 0.1
         self.y = deque(np.zeros(size), maxlen=delay + 1)
 
     def set_delay(self, delay):
@@ -62,13 +60,11 @@ class PIDController(object):
         # YOUR CODE HERE
         
         e0 = target - sensor
-        
+
         self.u = self.u + (self.Kp + self.Ki*self.dt + self.Kd/self.dt) * e0 - (self.Kp + (2*self.Kd)/self.dt) * self.e1 + (self.Kd/self.dt) * self.e2
         
         self.e2 = self.e1
         self.e1 = e0
-
-        self.y.append(self.u)
         
         return self.u
 

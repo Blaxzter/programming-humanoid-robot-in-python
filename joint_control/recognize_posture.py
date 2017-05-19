@@ -16,7 +16,8 @@ from sklearn import svm, metrics
 import pickle, numpy as np
 
 ROBOT_POSE_CLF = 'robot_pose.pkl'
-features = ['LHipYawPitch', 'LHipRoll', 'LHipPitch', 'LKneePitch', 'RHipYawPitch', 'RHipRoll', 'RHipPitch', 'RKneePitch', 'AngleX', 'AngleY']
+features = ['LHipYawPitch', 'LHipRoll', 'LHipPitch', 'LKneePitch', 'RHipYawPitch', 'RHipRoll', 'RHipPitch', 'RKneePitch']
+classes = ['Left', 'StandInit', 'Belly', 'Stand', 'Right', 'Knee', 'Crouch', 'Sit', 'Frog', 'HeadBack', 'Back']
 
 class PostureRecognitionAgent(AngleInterpolationAgent):
     def __init__(self, simspark_ip='localhost',
@@ -35,12 +36,14 @@ class PostureRecognitionAgent(AngleInterpolationAgent):
     def recognize_posture(self, perception):
         posture = 'unknown'
         clf2 = pickle.load(open(ROBOT_POSE_CLF))
-        n = len(features)
+        n = len(features) + 2
         detect_data = np.ndarray((n, 1))
-        detect_data[:(n - 2)] = perception.joint[features[:(n - 2)]]
+        for i in enumerate(features):
+            detect_data[i[0]] = perception.joint[i[1]]
+
         detect_data[-2] = perception.imu[0]
         detect_data[-1] = perception.imu[1]
-        clf2.predict(detect_data)
+        posture = classes[int(clf2.predict(detect_data.T)[0])]
 
         return posture
 
