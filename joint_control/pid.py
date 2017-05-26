@@ -37,10 +37,10 @@ class PIDController(object):
         delay = 0
         
         # Windows Values
-        # self.Kp = 13
+        self.Kp = 13
         
         # Ubuntu Values
-        self.Kp = 30
+        # self.Kp = 30
         self.Ki = 1
         self.Kd = 0.1
         self.y = deque(np.zeros(size), maxlen=delay + 1)

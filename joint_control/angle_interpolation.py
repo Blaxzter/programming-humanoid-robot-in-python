@@ -35,9 +35,11 @@ class AngleInterpolationAgent(PIDAgent):
 
         self.interpolated = 0
         self.startTime = -1
+        self.firstTime = -1
         self.endTime = -1
         self.saved_target_splines = {}
         self.interpolated_keyframes = ([], [], [])
+        self.current_time = 0
 
     def think(self, perception):
         target_joints = self.angle_interpolation(self.keyframes, perception)
@@ -46,31 +48,37 @@ class AngleInterpolationAgent(PIDAgent):
 
     def angle_interpolation(self, keyframes, perception):
         target_joints = {}
-        if keyframes == ([], [], []):
+        if keyframes == ([], [], []) and self.endTime < self.current_time:
+            print("Idle Mode")
             target_joints = perception.joint
         else:
-            if self.interpolated == 0 or keyframes != self.interpolated_keyframes:
+            if self.interpolated == 0 or (keyframes != self.interpolated_keyframes and keyframes != ([], [], [])):
                 self.startTime = perception.time
                 self.interpolated_keyframes = keyframes
                 self.cubic_spline_interpolation(keyframes)
                 self.interpolated = 1
                 self.endTime = self.get_latest_endTime()
-            current_time = perception.time - self.startTime
-            print("Current Time:", current_time)
+            self.current_time = perception.time - self.startTime
+            print("Current Time:", self.current_time)
             for joint_name, spline_list in self.saved_target_splines.iteritems():
                 # get the right joint angle
                 for time1, time2, spline in spline_list:
-                    if current_time < time1:
-                        target_joints[joint_name] = spline(time1)
+                    if self.current_time < spline_list[0][0]:
+                        #target_joints[joint_name] = spline(time1)
+                        if joint_name in perception.joint.keys():
+                            target_joints[joint_name] = perception.joint[joint_name]
                         break
-                    if current_time > time1 and current_time < time2:
-                        target_joints[joint_name] = spline(current_time)
+                    if self.current_time > time1 and self.current_time < time2:
+                        target_joints[joint_name] = spline(self.current_time)
                         break
 
 
             # After the last keyframe (time) he should be standing (no need for interpolation)
-            if current_time > self.endTime:
+            if self.current_time > self.endTime:
                 self.interpolated = 0
+                self.startTime = -1
+                self.firstTime = -1
+                self.endTime = -1
                 self.keyframes = ([], [], [])
 
         print(target_joints)
