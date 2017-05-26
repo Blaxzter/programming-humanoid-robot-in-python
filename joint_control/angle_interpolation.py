@@ -20,9 +20,10 @@
 '''
 
 
+from __future__ import print_function
+import numpy as np
 from pid import PIDAgent
 from keyframes import wipe_forehead, hello
-import numpy as np
 
 class AngleInterpolationAgent(PIDAgent):
     def __init__(self, simspark_ip='localhost',
@@ -32,11 +33,11 @@ class AngleInterpolationAgent(PIDAgent):
                  sync_mode=True):
         super(AngleInterpolationAgent, self).__init__(simspark_ip, simspark_port, teamname, player_id, sync_mode)
 
-        self.keyframes = ([], [], [])
-        self.saved_targed_splines = []
         self.interpolated = 0
         self.startTime = -1
-        self.saved_keyframes = ([], [], [])
+        self.endTime = -1
+        self.saved_target_splines = {}
+        self.interpolated_keyframes = ([], [], [])
 
     def think(self, perception):
         target_joints = self.angle_interpolation(self.keyframes, perception)
@@ -45,86 +46,93 @@ class AngleInterpolationAgent(PIDAgent):
 
     def angle_interpolation(self, keyframes, perception):
         target_joints = {}
-        # Check for new keyframes to interpolate (only interpolate once every keyframe)
-        if self.interpolated == 0 and len(keyframes[0]) != 0:
-            # Save the keyframe and move start time
-            self.interpolated = 1
-            self.saved_keyframes = keyframes
-            self.startTime = perception.time
-            self.saved_targed_splines = [-1] * len(keyframes[0])
-
-            # interpolate for every joint
-            jointCount = 0
-            for joint in keyframes[0]:
-                # get the times or the x values
-                times = keyframes[1][jointCount]
-                length = len(times) - 1
-
-                # get the y values out of the keyframes for the spine interpolation
-                y = np.zeros([length + 1])
-                for i in range(length + 1):
-                    y[i] = keyframes[2][jointCount][i][0]
-
-                # create the matrix for solving purpose
-                x_mat = np.zeros([4 * length, 4 * length])
-                y_mat = np.zeros([4 * length, 1])
-
-                # fill the created matrix with information about the keyframes
-                for val in range(length-1):
-                    a = 4 * val
-                    line = a + 1
-                    x_mat[line, a:a + 4] = np.array([1, times[val], times[val] ** 2, times[val] ** 3])
-                    x_mat[line + 1, a:a + 4] = np.array([1, times[val + 1], times[val + 1] ** 2, times[val + 1] ** 3])
-                    x_mat[line + 2, a:a + 8] = np.array([0, 1, 2 * times[val + 1], 3 * times[val + 1] ** 2, 0, -1, -2 * times[val + 1], -3 * times[val + 1] ** 2])
-                    x_mat[line + 3, a:a + 8] = np.array([0, 0, 2, 6 * times[val + 1], 0, 0, -2, -6 * times[val + 1]])
-
-                    y_mat[line:line + 4, 0] = np.array([y[val], y[val + 1], 0, 0])
-
-                # fill the corner cases where f'(0) = f'(n-1) = 0
-                x_mat[0, 0:4] = np.array([0, 0, 2, 6 * times[0]])
-                x_mat[4 * length - 3, 4 * length - 4:4 * length] = np.array([1, times[length - 1], times[length - 1] ** 2, times[length - 1] ** 3])
-                x_mat[4 * length - 2, 4 * length - 4:4 * length] = np.array([1, times[length], times[length] ** 2, times[length] ** 3])
-                x_mat[4 * length - 1, 4 * length - 4:4 * length] = np.array([0, 0, 2, 6 * times[length]])
-
-                y_mat[(4 * length - 3):(4 * length), 0] = np.array([y[length - 1], y[length], 0])
-
-                # solve the created LGS
-                solution = np.linalg.solve(x_mat, y_mat).reshape(-1)
-
-                # get the polynomes out of the solution
-                splines = []
-                for i in range(length):
-                    coffs = solution[(4 * i):(4 * i) + 4]
-                    coffs = coffs[::-1]
-                    poly = np.poly1d(coffs)
-                    splines.append([times[i], times[i+1], poly]) # save the polynom with the times of the polynom
-
-                # Save the polynoms of the joint
-                self.saved_targed_splines[jointCount] = [joint, splines]
-                jointCount += 1
+        if keyframes == ([], [], []):
+            target_joints = perception.joint
+        else:
+            if self.interpolated == 0 or keyframes != self.interpolated_keyframes:
+                self.startTime = perception.time
+                self.interpolated_keyframes = keyframes
+                self.cubic_spline_interpolation(keyframes)
+                self.interpolated = 1
+                self.endTime = self.get_latest_endTime()
+            current_time = perception.time - self.startTime
+            print("Current Time:", current_time)
+            for joint_name, spline_list in self.saved_target_splines.iteritems():
+                # get the right joint angle
+                for time1, time2, spline in spline_list:
+                    if current_time < time1:
+                        target_joints[joint_name] = spline(time1)
+                        break
+                    if current_time > time1 and current_time < time2:
+                        target_joints[joint_name] = spline(current_time)
+                        break
 
 
-        if v[0] in perception.joint.keys():
-            sens_value = perception.joint[v[0]]
-
-        # get the right return angle
-        currentTime = perception.time - self.startTime
-        print currentTime, " ", self.interpolated
-        for v in self.saved_targed_splines:
-
-            if currentTime > v[1][-1][1]:
-                print "Set to Zero"
+            # After the last keyframe (time) he should be standing (no need for interpolation)
+            if current_time > self.endTime:
                 self.interpolated = 0
-                sens_value = v[1][-1][2](v[1][-1][1])
-            else:
-                for time1, time2, pol in v[1]:
-                    if time2 < currentTime > time1:
-                        sens_value = pol(currentTime)
+                self.keyframes = ([], [], [])
 
-            target_joints[v[0]] = sens_value
-
-        print target_joints
+        print(target_joints)
         return target_joints
+
+    def cubic_spline_interpolation(self, keyframes):
+        print(" ------------------------- Interpolate ------------------------- ")
+        # interpolate for every joint
+        for joint_name in enumerate(keyframes[0]):
+            # get the times or the x values
+            times = keyframes[1][joint_name[0]]
+            length = len(times) - 1
+
+            # get the y values out of the keyframes for the spine interpolation
+            y = np.zeros([length + 1])
+            for i in range(length + 1):
+                y[i] = keyframes[2][joint_name[0]][i][0]
+
+            # create the matrix for solving purpose
+            x_mat = np.zeros([4 * length, 4 * length])
+            y_mat = np.zeros([4 * length, 1])
+
+            # fill the created matrix with information about the keyframes
+            for val in range(length - 1):
+                a = 4 * val
+                line = a + 1
+                x_mat[line, a:a + 4] = np.array([1, times[val], times[val] ** 2, times[val] ** 3])
+                x_mat[line + 1, a:a + 4] = np.array([1, times[val + 1], times[val + 1] ** 2, times[val + 1] ** 3])
+                x_mat[line + 2, a:a + 8] = np.array([0, 1, 2 * times[val + 1], 3 * times[val + 1] ** 2, 0, -1, -2 * times[val + 1], -3 * times[val + 1] ** 2])
+                x_mat[line + 3, a:a + 8] = np.array([0, 0, 2, 6 * times[val + 1], 0, 0, -2, -6 * times[val + 1]])
+
+                y_mat[line:line + 4, 0] = np.array([y[val], y[val + 1], 0, 0])
+
+            # fill the corner cases where f'(0) = f'(n-1) = 0
+            x_mat[0, 0:4] = np.array([0, 0, 2, 6 * times[0]])
+            x_mat[4 * length - 3, 4 * length - 4:4 * length] = np.array([1, times[length - 1], times[length - 1] ** 2, times[length - 1] ** 3])
+            x_mat[4 * length - 2, 4 * length - 4:4 * length] = np.array([1, times[length], times[length] ** 2, times[length] ** 3])
+            x_mat[4 * length - 1, 4 * length - 4:4 * length] = np.array([0, 0, 2, 6 * times[length]])
+
+            y_mat[(4 * length - 3):(4 * length), 0] = np.array([y[length - 1], y[length], 0])
+
+            # solve the created LGS
+            solution = np.linalg.solve(x_mat, y_mat).reshape(-1)
+
+            # get the polynomes out of the solution
+            splines = []
+            for i in range(length):
+                coffs = solution[(4 * i):(4 * i) + 4]
+                coffs = coffs[::-1]
+                poly = np.poly1d(coffs)
+                splines.append([times[i], times[i + 1], poly])  # save the polynom with the times of the polynom
+
+            # Save the polynoms of the joint
+            name = joint_name[1]
+            self.saved_target_splines[name] = splines
+
+    def get_latest_endTime(self):
+        latest_end_time = -1
+        for joint_name, spline_list in self.saved_target_splines.iteritems():
+            if latest_end_time < spline_list[-1][1]:
+                latest_end_time = spline_list[-1][1]
+        return latest_end_time
 
 if __name__ == '__main__':
     agent = AngleInterpolationAgent()

@@ -60,6 +60,7 @@ class PIDController(object):
         # YOUR CODE HERE
         
         e0 = target - sensor
+        # print "Fehler summe:", np.sum(e0)
 
         self.u = self.u + (self.Kp + self.Ki*self.dt + self.Kd/self.dt) * e0 - (self.Kp + (2*self.Kd)/self.dt) * self.e1 + (self.Kd/self.dt) * self.e2
         
