@@ -53,6 +53,7 @@ class AngleInterpolationAgent(PIDAgent):
             target_joints = perception.joint
         else:
             if self.interpolated == 0 or (keyframes != self.interpolated_keyframes and keyframes != ([], [], [])):
+                # self.addPosToKeyframe(keyframes, perception)
                 self.startTime = perception.time
                 self.interpolated_keyframes = keyframes
                 self.cubic_spline_interpolation(keyframes)
@@ -68,7 +69,7 @@ class AngleInterpolationAgent(PIDAgent):
                         if joint_name in perception.joint.keys():
                             target_joints[joint_name] = perception.joint[joint_name]
                         break
-                    if self.current_time > time1 and self.current_time < time2:
+                    if self.current_time >= time1 and self.current_time < time2:
                         target_joints[joint_name] = spline(self.current_time)
                         break
 
@@ -141,6 +142,12 @@ class AngleInterpolationAgent(PIDAgent):
             if latest_end_time < spline_list[-1][1]:
                 latest_end_time = spline_list[-1][1]
         return latest_end_time
+
+    def addPosToKeyframe(self, keyframes, perception):
+        for i in range(len(keyframes[0])):
+            if keyframes[0][i] in perception.joint.keys():
+                keyframes[1][i].insert(0, 0)
+                keyframes[2][i].insert(0, [perception.joint[keyframes[0][i]], [3, 0, 0]])
 
 if __name__ == '__main__':
     agent = AngleInterpolationAgent()
