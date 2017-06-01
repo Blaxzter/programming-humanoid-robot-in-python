@@ -37,6 +37,8 @@ class AngleInterpolationAgent(PIDAgent):
         self.startTime = -1
         self.firstTime = -1
         self.endTime = -1
+        self.at_startPosture = 0
+        self.start_posture_Splines = ([], [], [])
         self.saved_target_splines = {}
         self.interpolated_keyframes = ([], [], [])
         self.current_time = 0
@@ -53,15 +55,26 @@ class AngleInterpolationAgent(PIDAgent):
             target_joints = perception.joint
         else:
             if self.interpolated == 0 or (keyframes != self.interpolated_keyframes and keyframes != ([], [], [])):
-                # self.addPosToKeyframe(keyframes, perception)
+                start_keyframes = self.createPostureKeyframes(keyframes, perception)
+                self.start_posture_Splines = self.cubic_spline_interpolation(start_keyframes)
+                self.at_startPosture = 0
                 self.startTime = perception.time
                 self.interpolated_keyframes = keyframes
-                self.cubic_spline_interpolation(keyframes)
+                self.saved_target_splines = self.cubic_spline_interpolation(keyframes)
                 self.interpolated = 1
                 self.endTime = self.get_latest_endTime()
             self.current_time = perception.time - self.startTime
             print("Current Time:", self.current_time)
-            for joint_name, spline_list in self.saved_target_splines.iteritems():
+
+            used_taget_splines = self.saved_target_splines
+
+            if self.at_startPosture == 0:
+                used_taget_splines = self.start_posture_Splines
+                if self.current_time >= 2:
+                    self.at_startPosture = 1
+                    self.startTime = perception.time
+
+            for joint_name, spline_list in used_taget_splines.iteritems():
                 # get the right joint angle
                 for time1, time2, spline in spline_list:
                     if self.current_time < spline_list[0][0]:
@@ -87,6 +100,8 @@ class AngleInterpolationAgent(PIDAgent):
 
     def cubic_spline_interpolation(self, keyframes):
         print(" ------------------------- Interpolate ------------------------- ")
+
+        saved_target_splines = {}
         # interpolate for every joint
         for joint_name in enumerate(keyframes[0]):
             # get the times or the x values
@@ -134,7 +149,8 @@ class AngleInterpolationAgent(PIDAgent):
 
             # Save the polynoms of the joint
             name = joint_name[1]
-            self.saved_target_splines[name] = splines
+            saved_target_splines[name] = splines
+        return saved_target_splines
 
     def get_latest_endTime(self):
         latest_end_time = -1
@@ -143,13 +159,17 @@ class AngleInterpolationAgent(PIDAgent):
                 latest_end_time = spline_list[-1][1]
         return latest_end_time
 
-    def addPosToKeyframe(self, keyframes, perception):
+    def createPostureKeyframes(self, keyframes, perception):
+        duration = 2
+        return_keyframe = (keyframes[0], [[0, duration]] * len(keyframes[0]), [])
         for i in range(len(keyframes[0])):
             if keyframes[0][i] in perception.joint.keys():
-                keyframes[1][i].insert(0, 0)
-                keyframes[2][i].insert(0, [perception.joint[keyframes[0][i]], [3, 0, 0]])
+                return_keyframe[2].insert(i, [[perception.joint[keyframes[0][i]], [3, 0, 0]], keyframes[2][i][0]])
+            else:
+                return_keyframe[2].insert(i, [[0, [3, 0, 0]], [0, [3, 0, 0]]])
+        return return_keyframe
 
 if __name__ == '__main__':
     agent = AngleInterpolationAgent()
-    agent.keyframes = hello()  # CHANGE DIFFERENT KEYFRAMES
+    agent.keyframes = wipe_forehead()  # CHANGE DIFFERENT KEYFRAMES
     agent.run()
