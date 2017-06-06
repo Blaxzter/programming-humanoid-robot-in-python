@@ -57,15 +57,19 @@ class PIDController(object):
         @param sensor: current values from sensor
         @return control signal
         '''
-        # YOUR CODE HERE
-        
+              
         e0 = target - sensor
         # print "Fehler summe:", np.sum(e0)
 
         self.u = self.u + (self.Kp + self.Ki*self.dt + self.Kd/self.dt) * e0 - (self.Kp + (2*self.Kd)/self.dt) * self.e1 + (self.Kd/self.dt) * self.e2
         
-        self.e2 = self.e1
-        self.e1 = e0
+        self.e2 = self.e1.copy()
+        self.e1 = e0.copy()
+
+        last_value = self.y.popleft()
+        speed = (self.u + last_value) / (self.dt)
+        predicted = self.u + speed*self.dt
+        self.y.append(predicted)
         
         return self.u
 
