@@ -71,7 +71,7 @@ class PIDController(object):
             for i in range(1, self.delay):
                 diff_sum += self.y[-i] - self.y[-(i + 1)]
 
-            diff_sum /= self.delay
+            diff_sum /= float(self.delay)
 
             self.u = self.u + self.delay*diff_sum
         
