@@ -34,7 +34,7 @@ class PIDController(object):
         self.e1 = np.zeros(size)
         self.e2 = np.zeros(size)
         # ADJUST PARAMETERS BELOW
-        delay = 0
+        self.delay = 0
         
         # Windows Values
         self.Kp = 13
@@ -43,7 +43,7 @@ class PIDController(object):
         # self.Kp = 30
         self.Ki = 1
         self.Kd = 0.1
-        self.y = deque(np.zeros(size), maxlen=delay + 1)
+        self.y = deque(np.zeros(size), maxlen=self.delay + 1)
 
     def set_delay(self, delay):
         '''
@@ -66,10 +66,14 @@ class PIDController(object):
         self.e2 = self.e1.copy()
         self.e1 = e0.copy()
 
-        last_value = self.y.popleft()
-        speed = (self.u + last_value) / (self.dt)
-        predicted = self.u + speed*self.dt
-        self.y.append(predicted)
+        if self.delay != 0:
+            diff_sum = 0
+            for i in range(1, self.delay):
+                diff_sum += self.y[-i] - self.y[-(i + 1)]
+
+            diff_sum /= self.delay
+
+            self.u = self.u + self.delay*diff_sum
         
         return self.u
 
