@@ -33,6 +33,7 @@ class AngleInterpolationAgent(PIDAgent):
                  sync_mode=True):
         super(AngleInterpolationAgent, self).__init__(simspark_ip, simspark_port, teamname, player_id, sync_mode)
 
+        self.keyframes = ([], [], [])
         self.interpolated = 0
         self.startTime = -1
         self.firstTime = -1
@@ -51,7 +52,7 @@ class AngleInterpolationAgent(PIDAgent):
     def angle_interpolation(self, keyframes, perception):
         target_joints = {}
         if keyframes == ([], [], []) and self.endTime < self.current_time:
-            print("Idle Mode")
+            # print("Idle Mode")
             target_joints = perception.joint
         else:
             if self.interpolated == 0 or (keyframes != self.interpolated_keyframes and keyframes != ([], [], [])):
@@ -64,7 +65,7 @@ class AngleInterpolationAgent(PIDAgent):
                 self.interpolated = 1
                 self.endTime = self.get_latest_endTime()
             self.current_time = perception.time - self.startTime
-            print("Current Time:", self.current_time)
+            # print("Current Time:", self.current_time)
 
             used_taget_splines = self.saved_target_splines
 
@@ -95,7 +96,7 @@ class AngleInterpolationAgent(PIDAgent):
                 self.endTime = -1
                 self.keyframes = ([], [], [])
 
-        print(target_joints)
+        # print(target_joints)
         return target_joints
 
     def cubic_spline_interpolation(self, keyframes):
