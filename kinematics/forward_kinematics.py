@@ -84,7 +84,7 @@ class ForwardKinematicsAgent(AngleInterpolationAgent):
 
         # Like it's stated in B-Human coding guide here we apply the 45 degree rotation of the LHipYawPitch and RHipYawPitch
         if 'LHipYawPitch' == joint_name or 'RHipYawPitch' == joint_name:
-            T = np.dot(T, matrix([[1, 0, 0, 0], [0, cos(np.pi/4), -sin(np.pi/4), 0], [0, sin(np.pi/4), cos(np.pi/4), 0], [0, 0, 0, 1]]))
+            T = np.dot(T, matrix([[1, 0, 0, 0], [0, cos(-np.pi/4), -sin(-np.pi/4), 0], [0, sin(-np.pi/4), cos(-np.pi/4), 0], [0, 0, 0, 1]]))
 
         # Differ between the joint angles for Roll, Pitch and Yaw movement
         if 'Roll' in joint_name:

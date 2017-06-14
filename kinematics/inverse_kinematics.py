@@ -77,7 +77,11 @@ class InverseKinematicsAgent(ForwardKinematicsAgent):
         times = [[0, 5]] * len(names)
         keys = []
         for i, name in enumerate(names):
+            print name, ":", joint_angles[name]
             keys.insert(i, [[self.perception.joint[name], [3, 0, 0]], [joint_angles[name], [3, 0, 0]]])
+
+
+
 
         self.keyframes = (names, times, keys)  # the result joint angles have to fill in
 
