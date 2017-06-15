@@ -43,6 +43,7 @@ class AngleInterpolationAgent(PIDAgent):
         self.saved_target_splines = {}
         self.interpolated_keyframes = ([], [], [])
         self.current_time = 0
+        self.counter = 0
 
     def think(self, perception):
         target_joints = self.angle_interpolation(self.keyframes, perception)
@@ -81,12 +82,26 @@ class AngleInterpolationAgent(PIDAgent):
                     if self.current_time < spline_list[0][0]:
                         #target_joints[joint_name] = spline(time1)
                         if joint_name in perception.joint.keys():
+                            with open("KeyFrame.txt", "a") as save_file:
+                                save = str(self.counter) + " " + str(joint_name) + ' ' + str(self.current_time) + ' ' + str(perception.joint[joint_name]) + '\n'
+                                save_file.write(save)
                             target_joints[joint_name] = perception.joint[joint_name]
                         break
                     if self.current_time >= time1 and self.current_time < time2:
+                        with open("KeyFrame.txt", "a") as save_file:
+                            save = str(self.counter) + " " + str(joint_name) + ' ' + str(self.current_time) + ' ' + str(spline(self.current_time)) + '\n'
+                            save_file.write(save)
                         target_joints[joint_name] = spline(self.current_time)
                         break
 
+                with open("Actual.txt", "a") as save_file:
+                    if joint_name in perception.joint.keys():
+                        save = str(self.counter) + " " + str(joint_name) + ' ' + str(self.current_time) + ' ' + str(perception.joint[joint_name]) + '\n'
+                    else:
+                        save = str(self.counter) + " " + str(joint_name) + ' ' + str(self.current_time) + ' ' + str(0) + '\n'
+                    save_file.write(save)
+
+            self.counter += 1
 
             # After the last keyframe (time) he should be standing (no need for interpolation)
             if self.current_time > self.endTime:
@@ -172,5 +187,5 @@ class AngleInterpolationAgent(PIDAgent):
 
 if __name__ == '__main__':
     agent = AngleInterpolationAgent()
-    agent.keyframes = wipe_forehead()  # CHANGE DIFFERENT KEYFRAMES
+    agent.keyframes = hello()  # CHANGE DIFFERENT KEYFRAMES
     agent.run()
