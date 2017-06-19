@@ -19,11 +19,12 @@
     # preceding the point, the second describes the curve following the point.
 '''
 
-
 from __future__ import print_function
 import numpy as np
 from pid import PIDAgent
 from keyframes import wipe_forehead, hello
+import matplotlib.pyplot as plt
+
 
 class AngleInterpolationAgent(PIDAgent):
     def __init__(self, simspark_ip='localhost',
@@ -38,7 +39,8 @@ class AngleInterpolationAgent(PIDAgent):
         self.startTime = -1
         self.firstTime = -1
         self.endTime = -1
-        self.at_startPosture = 0
+        self.write_file = False
+        self.at_startPosture = 1
         self.start_posture_Splines = ([], [], [])
         self.saved_target_splines = {}
         self.interpolated_keyframes = ([], [], [])
@@ -53,53 +55,52 @@ class AngleInterpolationAgent(PIDAgent):
     def angle_interpolation(self, keyframes, perception):
         target_joints = {}
         if keyframes == ([], [], []) and self.endTime < self.current_time:
-            # print("Idle Mode")
-            target_joints = perception.joint
+            print("Idle Mode")
+            # target_joints = perception.joint
         else:
             if self.interpolated == 0 or (keyframes != self.interpolated_keyframes and keyframes != ([], [], [])):
-                start_keyframes = self.createPostureKeyframes(keyframes, perception)
-                self.start_posture_Splines = self.cubic_spline_interpolation(start_keyframes)
-                self.at_startPosture = 0
                 self.startTime = perception.time
                 self.interpolated_keyframes = keyframes
                 self.saved_target_splines = self.cubic_spline_interpolation(keyframes)
                 self.interpolated = 1
                 self.endTime = self.get_latest_endTime()
+
+                # self.show_plot()
+
             self.current_time = perception.time - self.startTime
             # print("Current Time:", self.current_time)
 
-            used_taget_splines = self.saved_target_splines
-
-            if self.at_startPosture == 0:
-                used_taget_splines = self.start_posture_Splines
-                if self.current_time >= 2:
-                    self.at_startPosture = 1
-                    self.startTime = perception.time
-
-            for joint_name, spline_list in used_taget_splines.iteritems():
+            for joint_name, spline_list in self.saved_target_splines.iteritems():
                 # get the right joint angle
                 for time1, time2, spline in spline_list:
                     if self.current_time < spline_list[0][0]:
-                        #target_joints[joint_name] = spline(time1)
+                        # target_joints[joint_name] = spline(time1)
                         if joint_name in perception.joint.keys():
-                            with open("KeyFrame.txt", "a") as save_file:
-                                save = str(self.counter) + " " + str(joint_name) + ' ' + str(self.current_time) + ' ' + str(perception.joint[joint_name]) + '\n'
-                                save_file.write(save)
+                            if self.write_file:
+                                with open("KeyFrame.txt", "a") as save_file:
+                                    save = str(self.counter) + " " + str(joint_name) + ' ' + str(
+                                        self.current_time) + ' ' + str(perception.joint[joint_name]) + '\n'
+                                    save_file.write(save)
                             target_joints[joint_name] = perception.joint[joint_name]
                         break
                     if self.current_time >= time1 and self.current_time < time2:
-                        with open("KeyFrame.txt", "a") as save_file:
-                            save = str(self.counter) + " " + str(joint_name) + ' ' + str(self.current_time) + ' ' + str(spline(self.current_time)) + '\n'
-                            save_file.write(save)
+                        if self.write_file:
+                            with open("KeyFrame.txt", "a") as save_file:
+                                save = str(self.counter) + " " + str(joint_name) + ' ' + str(
+                                    self.current_time) + ' ' + str(spline(self.current_time)) + '\n'
+                                save_file.write(save)
                         target_joints[joint_name] = spline(self.current_time)
                         break
 
-                with open("Actual.txt", "a") as save_file:
-                    if joint_name in perception.joint.keys():
-                        save = str(self.counter) + " " + str(joint_name) + ' ' + str(self.current_time) + ' ' + str(perception.joint[joint_name]) + '\n'
-                    else:
-                        save = str(self.counter) + " " + str(joint_name) + ' ' + str(self.current_time) + ' ' + str(0) + '\n'
-                    save_file.write(save)
+                if self.write_file:
+                    with open("Actual.txt", "a") as save_file:
+                        if joint_name in perception.joint.keys():
+                            save = str(self.counter) + " " + str(joint_name) + ' ' + str(self.current_time) + ' ' + str(
+                                perception.joint[joint_name]) + '\n'
+                        else:
+                            save = str(self.counter) + " " + str(joint_name) + ' ' + str(self.current_time) + ' ' + str(
+                                0) + '\n'
+                        save_file.write(save)
 
             self.counter += 1
 
@@ -113,6 +114,28 @@ class AngleInterpolationAgent(PIDAgent):
 
         # print(target_joints)
         return target_joints
+
+    def show_plot(self):
+        x = np.arange(0., self.endTime, 0.01)
+        y = {}
+        for i in x:
+            for joint_name, spline_list in self.saved_target_splines.iteritems():
+                if joint_name not in y.keys():
+                    y[joint_name] = []
+                for time1, time2, spline in spline_list:
+                    if i < spline_list[0][0] or i >= spline_list[-1][1]:
+                        y[joint_name].append(0)
+                        break
+                    if time2 > i >= time1:
+                        y[joint_name].append(spline(i))
+                        break
+        for i in range(len(y.keys())):
+            plt.figure(i + 1)
+            plt.title(str(i) + " " + y.keys()[i])
+            plt.plot(x, y[y.keys()[i]], color="blue", linestyle="-")
+
+        plt.show()
+
 
     def cubic_spline_interpolation(self, keyframes):
         print(" ------------------------- Interpolate ------------------------- ")
@@ -139,15 +162,19 @@ class AngleInterpolationAgent(PIDAgent):
                 line = a + 1
                 x_mat[line, a:a + 4] = np.array([1, times[val], times[val] ** 2, times[val] ** 3])
                 x_mat[line + 1, a:a + 4] = np.array([1, times[val + 1], times[val + 1] ** 2, times[val + 1] ** 3])
-                x_mat[line + 2, a:a + 8] = np.array([0, 1, 2 * times[val + 1], 3 * times[val + 1] ** 2, 0, -1, -2 * times[val + 1], -3 * times[val + 1] ** 2])
+                x_mat[line + 2, a:a + 8] = np.array(
+                    [0, 1, 2 * times[val + 1], 3 * times[val + 1] ** 2, 0, -1, -2 * times[val + 1],
+                     -3 * times[val + 1] ** 2])
                 x_mat[line + 3, a:a + 8] = np.array([0, 0, 2, 6 * times[val + 1], 0, 0, -2, -6 * times[val + 1]])
 
                 y_mat[line:line + 4, 0] = np.array([y[val], y[val + 1], 0, 0])
 
             # fill the corner cases where f'(0) = f'(n-1) = 0
             x_mat[0, 0:4] = np.array([0, 0, 2, 6 * times[0]])
-            x_mat[4 * length - 3, 4 * length - 4:4 * length] = np.array([1, times[length - 1], times[length - 1] ** 2, times[length - 1] ** 3])
-            x_mat[4 * length - 2, 4 * length - 4:4 * length] = np.array([1, times[length], times[length] ** 2, times[length] ** 3])
+            x_mat[4 * length - 3, 4 * length - 4:4 * length] = np.array(
+                [1, times[length - 1], times[length - 1] ** 2, times[length - 1] ** 3])
+            x_mat[4 * length - 2, 4 * length - 4:4 * length] = np.array(
+                [1, times[length], times[length] ** 2, times[length] ** 3])
             x_mat[4 * length - 1, 4 * length - 4:4 * length] = np.array([0, 0, 2, 6 * times[length]])
 
             y_mat[(4 * length - 3):(4 * length), 0] = np.array([y[length - 1], y[length], 0])
@@ -184,6 +211,7 @@ class AngleInterpolationAgent(PIDAgent):
             else:
                 return_keyframe[2].insert(i, [[0, [3, 0, 0]], [0, [3, 0, 0]]])
         return return_keyframe
+
 
 if __name__ == '__main__':
     agent = AngleInterpolationAgent()

@@ -12,6 +12,7 @@
 from forward_kinematics import ForwardKinematicsAgent
 from numpy.matlib import identity
 from math import atan2
+from collections import OrderedDict
 from numpy import matrix
 import numpy as np
 
@@ -32,7 +33,7 @@ class InverseKinematicsAgent(ForwardKinematicsAgent):
         lambda_ = 0.001
 
 
-        current_effected_joints = {}
+        current_effected_joints = OrderedDict()
         for name in self.chains[effector_name]:
             current_effected_joints[name] = self.perception.joint[name]
 
@@ -77,17 +78,15 @@ class InverseKinematicsAgent(ForwardKinematicsAgent):
         times = [[0, 5]] * len(names)
         keys = []
         for i, name in enumerate(names):
-            print name, ":", joint_angles[name]
+            print name, "\t", joint_angles[name]
             keys.insert(i, [[self.perception.joint[name], [3, 0, 0]], [joint_angles[name], [3, 0, 0]]])
-
-
 
 
         self.keyframes = (names, times, keys)  # the result joint angles have to fill in
 
     def from_trans(self, T):
         # return x,y,z
-        x, y, z = T[3, 0], T[3, 1], T[3, 2]
+        x, y, z = T[0, -1], T[1, -1], T[2, -1]
 
         theta_x, theta_y, theta_z = 0, 0, 0
 
@@ -105,7 +104,8 @@ if __name__ == '__main__':
     agent = InverseKinematicsAgent()
     # test inverse kinematics
     T = identity(4)
-    T[-1, 1] = 0.05
-    T[-1, 2] = 0.26
+    T[0, -1] = 0
+    T[1, -1] = -93
+    T[2, -1] = -228
     agent.set_transforms('LLeg', T)
     agent.run()

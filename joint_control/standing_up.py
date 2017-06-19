@@ -11,6 +11,7 @@ from keyframes import *
 
 
 class StandingUpAgent(PostureRecognitionAgent):
+
     def think(self, perception):
         self.posture = self.recognize_posture(perception)
         self.standing_up()
@@ -19,12 +20,25 @@ class StandingUpAgent(PostureRecognitionAgent):
     def standing_up(self):
         posture = self.posture
         print posture
+
         self.keyframes = ([], [], [])
         if posture == 'Belly':
             self.keyframes = leftBellyToStand()
+
         if posture == 'Back':
             self.keyframes = rightBackToStand()
 
+        """
+        start_keyframes = self.createPostureKeyframes(self.keyframes, self.perception)
+        self.start_posture_Splines = self.cubic_spline_interpolation(start_keyframes)
+        self.at_startPosture = 0
+        
+        # Not the right place to bring the robi to the starting position
+        if self.at_startPosture == 0:
+            used_taget_splines = self.start_posture_Splines
+            if self.current_time >= 2:
+                self.at_startPosture = 1
+                self.startTime = perception.time """
 
 class TestStandingUpAgent(StandingUpAgent):
     '''this agent turns off all motor to falls down in fixed cycles
@@ -38,6 +52,7 @@ class TestStandingUpAgent(StandingUpAgent):
         self.stiffness_on_off_time = 0
         self.stiffness_on_cycle = 10  # in seconds
         self.stiffness_off_cycle = 3  # in seconds
+
 
     def think(self, perception):
         action = super(TestStandingUpAgent, self).think(perception)

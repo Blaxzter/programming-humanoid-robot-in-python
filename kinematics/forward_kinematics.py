@@ -84,17 +84,22 @@ class ForwardKinematicsAgent(AngleInterpolationAgent):
 
         # Like it's stated in B-Human coding guide here we apply the 45 degree rotation of the LHipYawPitch and RHipYawPitch
         if 'LHipYawPitch' == joint_name or 'RHipYawPitch' == joint_name:
-            T = np.dot(T, matrix([[1, 0, 0, 0], [0, cos(-np.pi/4), -sin(-np.pi/4), 0], [0, sin(-np.pi/4), cos(-np.pi/4), 0], [0, 0, 0, 1]]))
+            if joint_name[0] == 'L':
+                T = np.dot(T, np.array([[1, 0, 0, 0], [0, cos(np.pi/4), -sin(np.pi/4), 0], [0, sin(np.pi/4), cos(np.pi/4), 0], [0, 0, 0, 1]]))
+            if joint_name[0] == 'R':
+                T = np.dot(T, np.array([[1, 0, 0, 0], [0, cos(-np.pi/4), -sin(-np.pi/4), 0], [0, sin(-np.pi/4), cos(-np.pi/4), 0], [0, 0, 0, 1]]))
 
         # Differ between the joint angles for Roll, Pitch and Yaw movement
         if 'Roll' in joint_name:
-            T = np.dot(T, matrix([[1, 0, 0, 0], [0, c, -s, 0], [0, s, c, 0], [0, 0, 0, 1]]))
+            T = np.dot(T, np.array([[1, 0, 0, 0], [0, c, -s, 0], [0, s, c, 0], [0, 0, 0, 1]]))
         if 'Pitch' in joint_name:
-            T = np.dot(T, matrix([[c, 0, s, 0], [0, 1, 0, 0], [-s, 0, c, 0], [0, 0, 0, 1]]))
+            T = np.dot(T, np.array([[c, 0, s, 0], [0, 1, 0, 0], [-s, 0, c, 0], [0, 0, 0, 1]]))
         if 'Yaw' in joint_name:
-            T = np.dot(T, matrix([[c, -s, 0, 0], [s, c, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]))
+            T = np.dot(T, np.array([[c, -s, 0, 0], [s, c, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]))
 
-        for i in range(3): T[3, i] = self.jointLengths[joint_name][i]
+        # I decided to put the x y z kords into the last row like it's done in the robot_arm_2d notebook
+        # even so its different shown on page 36 of the third lecture material
+        for i in range(3): T[i, -1] = self.jointLengths[joint_name][i]
 
         return T
 
