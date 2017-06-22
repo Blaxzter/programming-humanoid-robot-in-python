@@ -35,12 +35,14 @@ class AngleInterpolationAgent(PIDAgent):
                  sync_mode=True):
         super(AngleInterpolationAgent, self).__init__(simspark_ip, simspark_port, teamname, player_id, sync_mode)
 
+        self.write_file = False
+        self.plot = False
+
         self.keyframes = ([], [], [])
         self.interpolated = 0
         self.startTime = -1
         self.firstTime = -1
         self.endTime = -1
-        self.write_file = False
         self.at_startPosture = 1
         self.start_posture_Splines = ([], [], [])
         self.saved_target_splines = {}
@@ -56,17 +58,19 @@ class AngleInterpolationAgent(PIDAgent):
     def angle_interpolation(self, keyframes, perception):
         target_joints = {}
         if keyframes == ([], [], []) and self.endTime < self.current_time:
-            print("Idle Mode")
-            # target_joints = perception.joint
+            print("Idle Mode ", end="")
+            target_joints = perception.joint
         else:
             if self.interpolated == 0 or (keyframes != self.interpolated_keyframes and keyframes != ([], [], [])):
                 self.startTime = perception.time
-                self.interpolated_keyframes = copy.deepcopy(keyframes)
-                self.saved_target_splines = self.cubic_spline_interpolation(keyframes )
+                self.interpolated_keyframes = keyframes
+                # self.saved_target_splines = self.cubic_spline_interpolation(copy.deepcopy(keyframes))
+                self.saved_target_splines = self.hermite_interpolation(copy.deepcopy(keyframes))
                 self.interpolated = 1
                 self.endTime = self.get_latest_endTime()
 
-                # self.show_plot()
+                if self.plot:
+                    self.show_plot()
 
             self.current_time = perception.time - self.startTime
             # print("Current Time:", self.current_time)
@@ -74,21 +78,10 @@ class AngleInterpolationAgent(PIDAgent):
             for joint_name, spline_list in self.saved_target_splines.iteritems():
                 # get the right joint angle
                 for time1, time2, spline in spline_list:
-                    if self.current_time < spline_list[0][0]:
-                        # target_joints[joint_name] = spline(time1)
-                        if joint_name in perception.joint.keys():
-                            if self.write_file:
-                                with open("KeyFrame.txt", "a") as save_file:
-                                    save = str(self.counter) + " " + str(joint_name) + ' ' + str(
-                                        self.current_time) + ' ' + str(perception.joint[joint_name]) + '\n'
-                                    save_file.write(save)
-                            target_joints[joint_name] = perception.joint[joint_name]
-                        break
                     if self.current_time >= time1 and self.current_time < time2:
                         if self.write_file:
                             with open("KeyFrame.txt", "a") as save_file:
-                                save = str(self.counter) + " " + str(joint_name) + ' ' + str(
-                                    self.current_time) + ' ' + str(spline(self.current_time)) + '\n'
+                                save = str(self.counter) + " " + str(joint_name) + ' ' + str(self.current_time) + ' ' + str(spline(self.current_time)) + '\n'
                                 save_file.write(save)
                         target_joints[joint_name] = spline(self.current_time)
                         break
@@ -113,27 +106,44 @@ class AngleInterpolationAgent(PIDAgent):
                 self.endTime = -1
                 self.keyframes = ([], [], [])
 
-        # print(target_joints)
+        print(target_joints)
         return target_joints
 
     def show_plot(self):
         x = np.arange(0., self.endTime, 0.01)
-        y = {}
+        x_1 = {}
+        y_0 = {}
+        y_1 = {}
+        for joint_name in self.keyframes[0]:
+            if joint_name not in x_1.keys():
+                x_1[joint_name] = []
+                y_1[joint_name] = []
+            joint_id = self.keyframes[0].index(joint_name)
+            for time in self.keyframes[1][joint_id]:
+                x_1[joint_name].append(time)
+            for angle in self.keyframes[2][joint_id]:
+                y_1[joint_name].append(angle[0])
+
         for i in x:
             for joint_name, spline_list in self.saved_target_splines.iteritems():
-                if joint_name not in y.keys():
-                    y[joint_name] = []
+                if joint_name not in y_0.keys():
+                    y_0[joint_name] = []
                 for time1, time2, spline in spline_list:
                     if i < spline_list[0][0] or i >= spline_list[-1][1]:
-                        y[joint_name].append(0)
+                        y_0[joint_name].append(y_0[joint_name][-1])
                         break
                     if time2 > i >= time1:
-                        y[joint_name].append(spline(i))
+                        y_0[joint_name].append(spline(i))
                         break
-        for i in range(len(y.keys())):
+
+        for i in range(len(y_0.keys())):
             plt.figure(i + 1)
-            plt.title(str(i) + " " + y.keys()[i])
-            plt.plot(x, y[y.keys()[i]], color="blue", linestyle="-")
+            joint_name = y_0.keys()[i]
+            plt.title(str(i) + " " + joint_name)
+            plt.plot(x, y_0[joint_name], color="blue", linestyle="-")
+            plt.plot(x_1[joint_name], y_1[joint_name], color="green", linestyle="-", marker='x')
+            figManager = plt.get_current_fig_manager()
+            figManager.window.showMaximized()
 
         plt.show()
 
@@ -149,15 +159,68 @@ class AngleInterpolationAgent(PIDAgent):
 
         return keyframes
 
+    def hermite_interpolation(self, keyframes):
+
+        # print("------------------------------------------- Interpolate using Hermite ------------------------------------------- ")
+
+        keyframes = self.add_posture_to_keyframe(keyframes)
+
+        saved_target_splines = {}
+        for count, joint_name in enumerate(keyframes[0]):
+
+            # print("---------------------------------", count, joint_name, "---------------------------------")
+
+            x = keyframes[1][count]
+            n = len(x)
+
+            y = np.zeros([n])
+            for i in range(n):
+                y[i] = keyframes[2][count][i][0]
+
+            yp = np.zeros([n])
+
+            for i in range(1, n - 1):
+                if (y[i + 1] - y[i]) * (y[i] - y[i - 1]) < 0:
+                    yp[i] = 0
+                else:
+                    if np.abs((y[i + 1] - y[i]) / (x[i + 1] - x[i])) > 1:
+                        yp[i] = (y[i + 1] - y[i]) / (x[i + 1] - x[i]) / 4
+                    else:
+                        yp[i] = (y[i + 1] - y[i]) / (x[i + 1] - x[i])
+
+                    # yp[i] = (y[i + 1] - 2 * y[i] + y[i - 1]) / 2
+
+            spline = []
+
+            A = np.zeros([4, 4])
+            b = np.zeros([4, 1])
+            for i in range(n - 1):
+                A[0] = np.array([1, x[i], x[i] ** 2, x[i] ** 3])
+                A[1] = np.array([1, x[i + 1], x[i + 1] ** 2, x[i + 1] ** 3])
+                A[2] = np.array([0, 1, 2 * x[i], 3 * x[i] ** 2])
+                A[3] = np.array([0, 1, 2 * x[i + 1], 3 * x[i + 1] ** 2])
+                b = np.array([y[i], y[i + 1], yp[i], yp[i + 1]])
+
+                c = np.linalg.solve(A, b).reshape(-1)
+                c = c[::-1]
+                poly = np.poly1d(c)
+                spline.append([x[i], x[i + 1], poly])  # save the polynom with the times of the polynom
+
+            # Save the polynoms of the joint
+            name = joint_name
+            saved_target_splines[name] = spline
+
+        return saved_target_splines
+
     def cubic_spline_interpolation(self, keyframes):
         print(" ------------------------- Interpolate ------------------------- ")
 
-        # keyframes = self.add_posture_to_keyframe(keyframes)
+        keyframes = self.add_posture_to_keyframe(keyframes)
 
         saved_target_splines = {}
         # interpolate for every joint
         for joint_name in enumerate(keyframes[0]):
-            # get the times or the x values
+            # get the times of the x values
             times = keyframes[1][joint_name[0]]
             length = len(times) - 1
 

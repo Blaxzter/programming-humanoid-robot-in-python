@@ -6,9 +6,11 @@
 '''
 
 
+from __future__ import print_function
 from recognize_posture import PostureRecognitionAgent
 from keyframes import *
 
+startTime = 0
 
 class StandingUpAgent(PostureRecognitionAgent):
 
@@ -18,15 +20,24 @@ class StandingUpAgent(PostureRecognitionAgent):
         return super(StandingUpAgent, self).think(perception)
 
     def standing_up(self):
+        global startTime
+        if startTime == 0:
+            startTime = self.perception.time
+
+        print(self.perception.time - startTime, ": ", end="")
         posture = self.posture
-        print posture
+        print(posture, end="")
 
         self.keyframes = ([], [], [])
-        if posture == 'Belly':
-            self.keyframes = leftBellyToStand()
+        if self.perception.time - startTime > 123123123212.6:
+            print(" GO ", end="")
+            if posture == 'Belly':
+                self.keyframes = leftBellyToStand()
 
-        if posture == 'Back':
-            self.keyframes = rightBackToStand()
+            if posture == 'Back':
+                self.keyframes = rightBackToStand()
+        else:
+            print(" Wait ", end="")
 
         """
         start_keyframes = self.createPostureKeyframes(self.keyframes, self.perception)

@@ -65,10 +65,11 @@ class TestAngleInterpolation(unittest.TestCase):
         k_t = keyframes[1][plot_joint_id]
         k_a = [v[0] for v in keyframes[2][plot_joint_id]]
 
-        plt.plot(k_t, k_a, label='input')
+        plt.plot(k_t, k_a, label='input', marker='x')
         plt.plot(trajectory_t, traj, label='output')
         plt.legend()
         plt.savefig('test_angle_interpolation.png')
+        plt.show()
 
 if __name__ == '__main__':
     unittest.main()

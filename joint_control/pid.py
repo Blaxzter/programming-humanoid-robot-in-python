@@ -57,7 +57,9 @@ class PIDController(object):
         @param sensor: current values from sensor
         @return control signal
         '''
-              
+
+        print target
+
         e0 = target - sensor
         # print "Fehler summe:", np.sum(e0)
 
