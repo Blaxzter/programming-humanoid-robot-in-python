@@ -24,6 +24,7 @@ import numpy as np
 from pid import PIDAgent
 from keyframes import wipe_forehead, hello
 import matplotlib.pyplot as plt
+import copy
 
 
 class AngleInterpolationAgent(PIDAgent):
@@ -60,8 +61,8 @@ class AngleInterpolationAgent(PIDAgent):
         else:
             if self.interpolated == 0 or (keyframes != self.interpolated_keyframes and keyframes != ([], [], [])):
                 self.startTime = perception.time
-                self.interpolated_keyframes = keyframes
-                self.saved_target_splines = self.cubic_spline_interpolation(keyframes)
+                self.interpolated_keyframes = copy.deepcopy(keyframes)
+                self.saved_target_splines = self.cubic_spline_interpolation(keyframes )
                 self.interpolated = 1
                 self.endTime = self.get_latest_endTime()
 
@@ -136,9 +137,22 @@ class AngleInterpolationAgent(PIDAgent):
 
         plt.show()
 
+    def add_posture_to_keyframe(self, keyframes):
+        for i in range(len(keyframes[1])):
+            keyframes[1][i].insert(0, 0)
+
+        for i, name in enumerate(keyframes[1]):
+            if name in self.perception.joint.keys():
+                keyframes[2][i].insert(0, [self.perception.joint[name], [], []])
+            else:
+                keyframes[2][i].insert(0, [0, [], []])
+
+        return keyframes
 
     def cubic_spline_interpolation(self, keyframes):
         print(" ------------------------- Interpolate ------------------------- ")
+
+        # keyframes = self.add_posture_to_keyframe(keyframes)
 
         saved_target_splines = {}
         # interpolate for every joint
