@@ -29,7 +29,7 @@ class StandingUpAgent(PostureRecognitionAgent):
         print(posture, end="")
 
         self.keyframes = ([], [], [])
-        if self.perception.time - startTime > 123123123212.6:
+        if self.perception.time - startTime > 2.6:
             print(" GO ", end="")
             if posture == 'Belly':
                 self.keyframes = leftBellyToStand()

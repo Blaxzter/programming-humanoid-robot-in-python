@@ -52,6 +52,7 @@ class AngleInterpolationAgent(PIDAgent):
 
     def think(self, perception):
         target_joints = self.angle_interpolation(self.keyframes, perception)
+        #if len(target_joints) != 0:
         self.target_joints.update(target_joints)
         return super(AngleInterpolationAgent, self).think(perception)
 
@@ -59,10 +60,11 @@ class AngleInterpolationAgent(PIDAgent):
         target_joints = {}
         if keyframes == ([], [], []) and self.endTime < self.current_time:
             print("Idle Mode ", end="")
-            target_joints = perception.joint
+            # target_joints = perception.joint
         else:
             if self.interpolated == 0 or (keyframes != self.interpolated_keyframes and keyframes != ([], [], [])):
                 self.startTime = perception.time
+                target_joints = perception.joint
                 self.interpolated_keyframes = keyframes
                 # self.saved_target_splines = self.cubic_spline_interpolation(copy.deepcopy(keyframes))
                 self.saved_target_splines = self.hermite_interpolation(copy.deepcopy(keyframes))
@@ -142,8 +144,8 @@ class AngleInterpolationAgent(PIDAgent):
             plt.title(str(i) + " " + joint_name)
             plt.plot(x, y_0[joint_name], color="blue", linestyle="-")
             plt.plot(x_1[joint_name], y_1[joint_name], color="green", linestyle="-", marker='x')
-            figManager = plt.get_current_fig_manager()
-            figManager.window.showMaximized()
+            # figManager = plt.get_current_fig_manager()
+            # figManager.window.showMaximized()
 
         plt.show()
 
@@ -151,7 +153,7 @@ class AngleInterpolationAgent(PIDAgent):
         for i in range(len(keyframes[1])):
             keyframes[1][i].insert(0, 0)
 
-        for i, name in enumerate(keyframes[1]):
+        for i, name in enumerate(keyframes[0]):
             if name in self.perception.joint.keys():
                 keyframes[2][i].insert(0, [self.perception.joint[name], [], []])
             else:
@@ -180,15 +182,18 @@ class AngleInterpolationAgent(PIDAgent):
             yp = np.zeros([n])
 
             for i in range(1, n - 1):
-                if (y[i + 1] - y[i]) * (y[i] - y[i - 1]) < 0:
+                if (y[i + 1] - y[i]) * (y[i] - y[i - 1]) <= 0:
                     yp[i] = 0
                 else:
                     if np.abs((y[i + 1] - y[i]) / (x[i + 1] - x[i])) > 1:
-                        yp[i] = (y[i + 1] - y[i]) / (x[i + 1] - x[i]) / 4
+                        yp[i] = 0
                     else:
                         yp[i] = (y[i + 1] - y[i]) / (x[i + 1] - x[i])
 
-                    # yp[i] = (y[i + 1] - 2 * y[i] + y[i - 1]) / 2
+                    #yp[i] = (y[i + 1] - y[i - 1]) / (x[i + 1] - x[i - 1])
+                    #v0 = (y[i] - y[i - 1]) / (x[i] - x[i - 1])
+                    #v1 = (y[i + 1] - y[i]) / (x[i + 1] - x[i])
+                    #yp[i] = (v0 + v1) / 2
 
             spline = []
 

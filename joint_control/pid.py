@@ -37,10 +37,10 @@ class PIDController(object):
         self.delay = 0
         
         # Windows Values
-        self.Kp = 13
+        # self.Kp = 13
         
         # Ubuntu Values
-        # self.Kp = 30
+        self.Kp = 30
         self.Ki = 1
         self.Kd = 0.1
         self.y = deque(np.zeros(size), maxlen=self.delay + 1)
@@ -58,7 +58,7 @@ class PIDController(object):
         @return control signal
         '''
 
-        print target
+        #print target
 
         e0 = target - sensor
         # print "Fehler summe:", np.sum(e0)
@@ -90,13 +90,14 @@ class PIDAgent(SparkAgent):
         self.joint_names = JOINT_CMD_NAMES.keys()
         number_of_joints = len(self.joint_names)
         self.joint_controller = PIDController(dt=0.01, size=number_of_joints)
-        self.target_joints = {k: 0 for k in self.joint_names}
+        self.target_joints = {}
 
     def think(self, perception):
         action = super(PIDAgent, self).think(perception)
         '''calculate control vector (speeds) from
         perception.joint:   current joints' positions (dict: joint_id -> position (current))
         self.target_joints: target positions (dict: joint_id -> position (target)) '''
+        print(self.target_joints)
         joint_angles = np.asarray(
             [perception.joint[joint_id]  for joint_id in JOINT_CMD_NAMES])
         target_angles = np.asarray([self.target_joints.get(joint_id, 

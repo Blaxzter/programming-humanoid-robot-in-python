@@ -32,7 +32,7 @@ for i in range(len(act_y.keys())):
 
     plt.plot(time[0:len(act_y[act_y.keys()[i]])], act_y[act_y.keys()[i]][0:len(time)], color="blue", linestyle="-")
     plt.plot(time[0:len(key_y[key_y.keys()[i]])], key_y[key_y.keys()[i]][0:len(time)], color="green", linestyle="-")
-    figManager = plt.get_current_fig_manager()
-    figManager.window.showMaximized()
+    # figManager = plt.get_current_fig_manager()
+    # figManager.window.showMaximized()
 
 plt.show()
