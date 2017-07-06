@@ -109,6 +109,9 @@ class AngleInterpolationAgent(PIDAgent):
                 self.keyframes = ([], [], [])
 
         print(target_joints)
+        if 'LHipYawPitch' in target_joints.keys():
+            target_joints['RHipYawPitch'] = target_joints['LHipYawPitch']
+
         return target_joints
 
     def show_plot(self):

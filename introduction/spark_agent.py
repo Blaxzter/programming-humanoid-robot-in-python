@@ -204,7 +204,7 @@ class Action(object):
 
 
 class SparkAgent(object):
-    def __init__(self, simspark_ip='localhost',
+    def __init__(self, simspark_ip='nao1.local',
                  simspark_port=3100,
                  teamname='DAInamite',
                  player_id=0,

@@ -26,7 +26,21 @@ from inverse_kinematics import InverseKinematicsAgent
 class ServerAgent(InverseKinematicsAgent):
     '''ServerAgent provides RPC service
     '''
-    
+    def __init__(self, simspark_ip='localhost',
+                 simspark_port=3100,
+                 teamname='DAInamite',
+                 player_id=0,
+                 sync_mode=True):
+        super(ServerAgent, self).__init__(simspark_ip, simspark_port, teamname, player_id, sync_mode)
+        server = SimpleXMLRPCServer.SimpleXMLRPCServer(('localhost', 9000), logRequests=True, allow_none=True)
+        server.register_instance(self)
+        server.register_introspection_functions()
+        server.register_multicall_functions()
+
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+
+
     def get_angle(self, joint_name):
         '''get sensor value of given joint'''
         return self.perception.joint[joint_name]
@@ -75,12 +89,5 @@ class ServerAgent(InverseKinematicsAgent):
 
 if __name__ == '__main__':
     agent = ServerAgent()
-    server = SimpleXMLRPCServer.SimpleXMLRPCServer(('localhost', 9000), logRequests=True, allow_none=True)
-    server.register_instance(agent)
-    server.register_introspection_functions()
-    server.register_multicall_functions()
-
-    thread = threading.Thread(target=server.serve_forever)
-    thread.start()
     agent.run()
 

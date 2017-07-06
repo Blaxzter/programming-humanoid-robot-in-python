@@ -99,7 +99,8 @@ class ForwardKinematicsAgent(AngleInterpolationAgent):
 
         # I decided to put the x y z kords into the last row like it's done in the robot_arm_2d notebook
         # even so its different shown on page 36 of the third lecture material
-        for i in range(3): T[i, -1] = self.jointLengths[joint_name][i]
+        if joint_name in self.jointLengths.keys():
+            for i in range(3): T[i, -1] = self.jointLengths[joint_name][i]
 
         return T
 

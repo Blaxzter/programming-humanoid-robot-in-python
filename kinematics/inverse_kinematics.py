@@ -71,6 +71,15 @@ class InverseKinematicsAgent(ForwardKinematicsAgent):
         '''
         # Solve the inverese kinematics and get the angles
 
+        current_effected_joints = OrderedDict()
+        for name in self.chains[effector_name]:
+            current_effected_joints[name] = self.perception.joint[name]
+
+        self.forward_kinematics(current_effected_joints)
+        transform[0, -1] += self.transforms[self.chains[effector_name][-1]][0, -1]
+        transform[1, -1] += self.transforms[self.chains[effector_name][-1]][1, -1]
+        transform[2, -1] += self.transforms[self.chains[effector_name][-1]][2, -1]
+
         joint_angles = self.inverse_kinematics(effector_name, transform)
 
         # put the returned angles into the keyframe
@@ -105,7 +114,7 @@ if __name__ == '__main__':
     # test inverse kinematics
     T = identity(4)
     T[0, -1] = 0
-    T[1, -1] = -93
-    T[2, -1] = -228
+    T[1, -1] = 0.1
+    T[2, -1] = 0.2
     agent.set_transforms('LLeg', T)
     agent.run()
