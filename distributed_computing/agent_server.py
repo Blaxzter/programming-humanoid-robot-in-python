@@ -54,6 +54,9 @@ class ServerAgent(InverseKinematicsAgent):
     def get_posture(self):
         '''return current posture of robot'''
         # That sadly cant work because the recognize posture agent isn't part of the inheritance list
+        # Changed the inheritance path so that forward kinematics inherits from Recognize posture
+        self.recognize_posture(self.perception)
+        return self.posture
 
     def execute_keyframes(self, keyframes):
         '''excute keyframes, note this function is blocking call,
@@ -68,18 +71,11 @@ class ServerAgent(InverseKinematicsAgent):
     def get_transform(self, name):
         '''get transform with given name
         '''
-        current_effected_joints = OrderedDict()
-        for joint in self.chains[name]:
-            current_effected_joints[joint] = self.perception.joint[joint]
 
-        self.forward_kinematics(name)  # calc current forward kinematics from current joint
+        self.forward_kinematics(self.perception.joint)  # calc current forward kinematics from current joint
 
-        T = [0] * len(self.chains[name])
-        for i, joint in enumerate(self.chains[name]):
-            T[i] = self.transforms[joint]  # get the solution
-
-        Te = np.array([self.from_trans(T[-1])])
-        return Te
+        Te = np.array([self.from_trans(self.transforms[self.chains[name][-1]])])
+        return str(Te)
 
     def set_transform(self, effector_name, transform):
         '''solve the inverse kinematics and control joints use the results

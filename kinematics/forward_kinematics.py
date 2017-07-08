@@ -16,18 +16,18 @@
 '''
 
 # add PYTHONPATH
+from __future__ import print_function
 import os
 import sys
-
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', 'joint_control'))
 
 from numpy.matlib import matrix, identity, sin, cos
 import numpy as np
 
-from angle_interpolation import AngleInterpolationAgent
+from recognize_posture import PostureRecognitionAgent
 
 
-class ForwardKinematicsAgent(AngleInterpolationAgent):
+class ForwardKinematicsAgent(PostureRecognitionAgent):
     def __init__(self, simspark_ip='localhost',
                  simspark_port=3100,
                  teamname='DAInamite',
@@ -65,7 +65,7 @@ class ForwardKinematicsAgent(AngleInterpolationAgent):
                              }
 
     def think(self, perception):
-        self.forward_kinematics(perception.joint)
+        # self.forward_kinematics(perception.joint)
         return super(ForwardKinematicsAgent, self).think(perception)
 
     def local_trans(self, joint_name, joint_angle):
@@ -90,11 +90,11 @@ class ForwardKinematicsAgent(AngleInterpolationAgent):
                 T = np.dot(T, np.array([[1, 0, 0, 0], [0, cos(-np.pi/4), -sin(-np.pi/4), 0], [0, sin(-np.pi/4), cos(-np.pi/4), 0], [0, 0, 0, 1]]))
 
         # Differ between the joint angles for Roll, Pitch and Yaw movement
-        if 'Roll' in joint_name:
+        if 'Roll' in joint_name[-4:]:
             T = np.dot(T, np.array([[1, 0, 0, 0], [0, c, -s, 0], [0, s, c, 0], [0, 0, 0, 1]]))
-        if 'Pitch' in joint_name:
+        elif 'Pitch' in joint_name[-5:]:
             T = np.dot(T, np.array([[c, 0, s, 0], [0, 1, 0, 0], [-s, 0, c, 0], [0, 0, 0, 1]]))
-        if 'Yaw' in joint_name:
+        elif 'Yaw' in joint_name[-3:]:
             T = np.dot(T, np.array([[c, -s, 0, 0], [s, c, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]))
 
         # I decided to put the x y z kords into the last row like it's done in the robot_arm_2d notebook
@@ -109,14 +109,16 @@ class ForwardKinematicsAgent(AngleInterpolationAgent):
 
         :param joints: {joint_name: joint_angle}
         '''
-        T = identity(4)
-        for joint in joints.keys():
-            angle = joints[joint]
-            Tl = self.local_trans(joint, angle)
-            T = np.dot(T, Tl)
-            self.transforms[joint] = T
+        for chain_joints in self.chains.values():
+            T = identity(4)
+            for joint in chain_joints:
+                angle = joints[joint]
+                Tl = self.local_trans(joint, angle)
+                T = np.dot(T, Tl)
+                self.transforms[joint] = T
 
 
 if __name__ == '__main__':
     agent = ForwardKinematicsAgent()
+    agent.forward_kinematics(agent.perception.joint)
     agent.run()

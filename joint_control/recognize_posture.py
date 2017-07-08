@@ -36,8 +36,9 @@ class PostureRecognitionAgent(AngleInterpolationAgent):
 
     def recognize_posture(self, perception):
         posture = 'unknown'
-        classes = listdir(ROBOT_POSE_DATA_DIR)
-        clf2 = pickle.load(open(ROBOT_POSE_CLF))
+        path = str("../joint_control/" + ROBOT_POSE_DATA_DIR)
+        classes = listdir(path)
+        clf2 = pickle.load(open(str("../joint_control/" + ROBOT_POSE_CLF)))
         n = len(features) + 2
         detect_data = np.ndarray((n, 1))
         for i in enumerate(features):

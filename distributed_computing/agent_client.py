@@ -57,6 +57,7 @@ class ClientAgent(object):
     def get_posture(self):
         '''return current posture of robot'''
         # That sadly cant work because the recognize posture agent isn't part of the inheritance list
+        return self.MyProxy.get_posture()
 
     def execute_keyframes(self, keyframes):
         '''excute keyframes, note this function is blocking call,
@@ -76,7 +77,6 @@ class ClientAgent(object):
 
 if __name__ == '__main__':
     agent = ClientAgent()
-    print(agent.execute_keyframes(hello()))
-    print("Test")
+    print agent.get_transform("LLeg")
 
 

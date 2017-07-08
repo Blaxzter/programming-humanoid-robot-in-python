@@ -56,3 +56,5 @@ target/
 
 # .idea umgebung
 .idea
+
+/joint_control/robot_pose.pkl

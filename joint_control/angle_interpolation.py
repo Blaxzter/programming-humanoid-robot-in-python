@@ -59,7 +59,8 @@ class AngleInterpolationAgent(PIDAgent):
     def angle_interpolation(self, keyframes, perception):
         target_joints = {}
         if keyframes == ([], [], []) and self.endTime < self.current_time:
-            print("Idle Mode ", end="")
+            pass
+            # print("Idle Mode ", end="")
             # target_joints = perception.joint
         else:
             if self.interpolated == 0 or (keyframes != self.interpolated_keyframes and keyframes != ([], [], [])):
@@ -108,9 +109,10 @@ class AngleInterpolationAgent(PIDAgent):
                 self.endTime = -1
                 self.keyframes = ([], [], [])
 
-        print(target_joints)
         if 'LHipYawPitch' in target_joints.keys():
             target_joints['RHipYawPitch'] = target_joints['LHipYawPitch']
+
+        # print(target_joints)
 
         return target_joints
 

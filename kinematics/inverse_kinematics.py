@@ -31,7 +31,7 @@ class InverseKinematicsAgent(ForwardKinematicsAgent):
         # Using the easyer numerical inverse kinematics
         joint_angles = np.asarray([0.0] * len(self.chains[effector_name]))
         lambda_ = 0.001
-
+        my_joint_perception = self.perception.joint.copy()
 
         current_effected_joints = OrderedDict()
         for name in self.chains[effector_name]:
@@ -41,7 +41,7 @@ class InverseKinematicsAgent(ForwardKinematicsAgent):
         target = self.from_trans(transform)
 
         while True:
-            self.forward_kinematics(current_effected_joints)  # calc current forward kinematics from current joint
+            self.forward_kinematics(my_joint_perception)  # calc current forward kinematics from current joint
 
             T = [0] * len(self.chains[effector_name])
             for i, name in enumerate(self.chains[effector_name]):
@@ -49,18 +49,19 @@ class InverseKinematicsAgent(ForwardKinematicsAgent):
 
             Te = np.array([self.from_trans(T[-1])])
             e = target - Te
-            T = np.array([self.from_trans(i) for i in T[0:len(self.chains[effector_name])]])
-            J = Te - T
+            T1 = np.array([self.from_trans(i) for i in T[0:len(self.chains[effector_name])]])
+            J = Te - T1
             J = J.T
             J[-1, :] = 1  # angular velocity
             JJT = np.dot(J, J.T)
             d_theta = lambda_ * np.dot(np.dot(J.T, np.linalg.pinv(JJT)), e.T)
 
             for i, name in enumerate(self.chains[effector_name]):
+                my_joint_perception[name] += np.asarray(d_theta.T)[0][i]
                 current_effected_joints[name] += np.asarray(d_theta.T)[0][i]
 
             print np.linalg.norm(d_theta), current_effected_joints, e
-            if np.linalg.norm(d_theta) < 1e-3:
+            if np.linalg.norm(d_theta) < 1e-4:
                 print '\n ---------------------------- break ----------------------------- \n'
                 break
 
@@ -71,27 +72,21 @@ class InverseKinematicsAgent(ForwardKinematicsAgent):
         '''
         # Solve the inverese kinematics and get the angles
 
-        current_effected_joints = OrderedDict()
-        for name in self.chains[effector_name]:
-            current_effected_joints[name] = self.perception.joint[name]
+        self.forward_kinematics(self.perception.joint)
 
-        self.forward_kinematics(current_effected_joints)
-        transform[0, -1] += self.transforms[self.chains[effector_name][-1]][0, -1]
-        transform[1, -1] += self.transforms[self.chains[effector_name][-1]][1, -1]
-        transform[2, -1] += self.transforms[self.chains[effector_name][-1]][2, -1]
+        transform += self.transforms[self.chains[effector_name][-1]]
 
         joint_angles = self.inverse_kinematics(effector_name, transform)
 
         # put the returned angles into the keyframe
         names = self.chains[effector_name]
-        times = [[0, 5]] * len(names)
+        times = [[5] for x in range(len(names))]
         keys = []
         for i, name in enumerate(names):
-            print name, "\t", joint_angles[name]
-            keys.insert(i, [[self.perception.joint[name], [3, 0, 0]], [joint_angles[name], [3, 0, 0]]])
-
+            keys.insert(i, [[joint_angles[name], [], []]])
 
         self.keyframes = (names, times, keys)  # the result joint angles have to fill in
+        return self.keyframes
 
     def from_trans(self, T):
         # return x,y,z
@@ -112,9 +107,9 @@ class InverseKinematicsAgent(ForwardKinematicsAgent):
 if __name__ == '__main__':
     agent = InverseKinematicsAgent()
     # test inverse kinematics
-    T = identity(4)
-    T[0, -1] = 0
-    T[1, -1] = 0.1
-    T[2, -1] = 0.2
-    agent.set_transforms('LLeg', T)
+    T = np.zeros([4, 4])
+    T[0, -1] = 10
+    T[1, -1] = 50
+    T[2, -1] = 50
+    agent.set_transforms('RArm', T)
     agent.run()
