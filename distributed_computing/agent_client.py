@@ -48,6 +48,8 @@ class ClientAgent(object):
     def get_angle(self, joint_name):
         '''get sensor value of given joint'''
         return self.MyProxy.get_angle(joint_name)
+        self.post = PostHandler(self)
+
     
     def set_angle(self, joint_name, angle):
         '''set target angle of joint for PID controller
@@ -78,5 +80,4 @@ class ClientAgent(object):
 if __name__ == '__main__':
     agent = ClientAgent()
     print agent.get_transform("LLeg")
-
 

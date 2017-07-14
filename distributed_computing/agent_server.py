@@ -24,8 +24,7 @@ from inverse_kinematics import InverseKinematicsAgent
 
 
 class ServerAgent(InverseKinematicsAgent):
-    '''ServerAgent provides RPC service
-    '''
+    '''ServerAgent provides RPC service'''
     def __init__(self, simspark_ip='localhost',
                  simspark_port=3100,
                  teamname='DAInamite',
@@ -58,6 +57,7 @@ class ServerAgent(InverseKinematicsAgent):
         self.recognize_posture(self.perception)
         return self.posture
 
+
     def execute_keyframes(self, keyframes):
         '''excute keyframes, note this function is blocking call,
         e.g. return until keyframes are executed
@@ -68,6 +68,7 @@ class ServerAgent(InverseKinematicsAgent):
             pass
         return
 
+
     def get_transform(self, name):
         '''get transform with given name
         '''
@@ -76,6 +77,7 @@ class ServerAgent(InverseKinematicsAgent):
 
         Te = np.array([self.from_trans(self.transforms[self.chains[name][-1]])])
         return str(Te)
+
 
     def set_transform(self, effector_name, transform):
         '''solve the inverse kinematics and control joints use the results
